@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VoiceTranslator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #18181f;
+      --border: #2a2a38;
+      --accent: #7c6dfa;
+      --accent2: #fa6d9a;
+      --accent3: #6dfad4;
+      --text: #eeeef5;
+      --muted: #6b6b80;
+      --danger: #fa4d4d;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124,109,250,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 90%, rgba(250,109,154,0.10) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 60% 40%, rgba(109,250,212,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,109,250,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,109,250,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(124,109,250,0.12);
+      border: 1px solid rgba(124,109,250,0.3);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+
+    .logo-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(36px, 6vw, 72px);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #eeeef5 30%, var(--accent) 70%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.05em;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 780px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(124,109,250,0.05),
+        0 40px 80px rgba(0,0,0,0.5),
+        0 0 120px rgba(124,109,250,0.06);
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    .mic-section {
+      padding: 48px 40px 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mic-ring-outer {
+      position: relative;
+      width: 120px; height: 120px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Rotating gradient ring — vendor-prefix-free version */
+    .mic-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      background:
+        linear-gradient(var(--surface), var(--surface)) padding-box,
+        linear-gradient(135deg, rgba(124,109,250,0.6), rgba(250,109,154,0.6)) border-box;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.4s, transform 0.4s;
+    }
+
+    .mic-ring-2 {
+      position: absolute;
+      inset: -16px;
+      border-radius: 50%;
+      border: 1px solid rgba(124,109,250,0.15);
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.4s 0.1s, transform 0.4s 0.1s;
+    }
+
+    .recording .mic-ring,
+    .recording .mic-ring-2 {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .recording .mic-ring {
+      animation: spin-ring 3s linear infinite;
+    }
+
+    .mic-btn {
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      z-index: 1;
+      transition: transform 0.2s, box-shadow 0.3s;
+    }
+
+    .mic-btn:hover {
+      transform: scale(1.06);
+      box-shadow: 0 0 32px rgba(124,109,250,0.25);
+    }
+
+    .mic-btn:active { transform: scale(0.96); }
+
+    .mic-btn svg {
+      width: 36px; height: 36px;
+      fill: var(--muted);
+      transition: fill 0.3s;
+    }
+
+    .recording .mic-btn {
+      background: linear-gradient(135deg, rgba(124,109,250,0.2), rgba(250,109,154,0.15));
+      box-shadow: 0 0 40px rgba(124,109,250,0.3), 0 0 80px rgba(124,109,250,0.1);
+    }
+
+    .recording .mic-btn svg { fill: var(--accent); }
+
+    .waveform {
+      display: flex; align-items: center; gap: 4px;
+      height: 40px; opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .recording .waveform { opacity: 1; }
+
+    .bar {
+      width: 3px;
+      border-radius: 10px;
+      background: linear-gradient(to top, var(--accent), var(--accent2));
+      height: 8px;
+      animation: none;
+    }
+
+    .recording .bar { animation: wave 1s ease-in-out infinite; }
+
+    .bar:nth-child(1)  { animation-delay: 0s; }
+    .bar:nth-child(2)  { animation-delay: 0.1s; }
+    .bar:nth-child(3)  { animation-delay: 0.2s; }
+    .bar:nth-child(4)  { animation-delay: 0.3s; }
+    .bar:nth-child(5)  { animation-delay: 0.15s; }
+    .bar:nth-child(6)  { animation-delay: 0.05s; }
+    .bar:nth-child(7)  { animation-delay: 0.25s; }
+    .bar:nth-child(8)  { animation-delay: 0.35s; }
+    .bar:nth-child(9)  { animation-delay: 0.1s; }
+    .bar:nth-child(10) { animation-delay: 0.2s; }
+    .bar:nth-child(11) { animation-delay: 0.3s; }
+    .bar:nth-child(12) { animation-delay: 0.4s; }
+
+    .status-label {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transition: color 0.3s;
+    }
+
+    .recording .status-label { color: var(--accent); }
+
+    .results {
+      padding: 32px 40px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .result-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.5s, transform 0.5s;
+    }
+
+    .result-block.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .result-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .result-label .tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    .tag-tr {
+      background: rgba(250,109,154,0.15);
+      color: var(--accent2);
+      border: 1px solid rgba(250,109,154,0.25);
+    }
+
+    .tag-en {
+      background: rgba(109,250,212,0.12);
+      color: var(--accent3);
+      border: 1px solid rgba(109,250,212,0.25);
+    }
+
+    .result-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      font-size: 17px;
+      line-height: 1.6;
+      color: var(--text);
+      min-height: 64px;
+      position: relative;
+      transition: border-color 0.3s;
+    }
+
+    .result-box.tr-box { border-left: 3px solid var(--accent2); }
+    .result-box.en-box { border-left: 3px solid var(--accent3); }
+
+    .result-box .placeholder {
+      color: var(--muted);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+    }
+
+    .divider-line {
+      flex: 1; height: 1px; background: var(--border);
+    }
+
+    .divider-icon {
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .speak-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(109,250,212,0.3);
+      background: rgba(109,250,212,0.08);
+      color: var(--accent3);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      align-self: flex-start;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .speak-btn.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .speak-btn:hover {
+      background: rgba(109,250,212,0.15);
+      box-shadow: 0 0 20px rgba(109,250,212,0.1);
+      transform: translateY(-1px);
+    }
+
+    .speak-btn:active { transform: translateY(0); }
+
+    .speak-btn svg {
+      width: 14px; height: 14px;
+      fill: currentColor;
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, var(--surface2) 25%, rgba(124,109,250,0.08) 50%, var(--surface2) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+      height: 18px;
+    }
+
+    .error-msg {
+      display: none;
+      background: rgba(250,77,77,0.1);
+      border: 1px solid rgba(250,77,77,0.25);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: var(--danger);
+    }
+
+    .error-msg.show { display: block; }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(1.4); }
+    }
+
+    @keyframes wave {
+      0%, 100% { height: 8px; }
+      50%       { height: 32px; }
+    }
+
+    @keyframes shimmer {
+      from { background-position: 200% 0; }
+      to   { background-position: -200% 0; }
+    }
+
+    @keyframes spin-ring {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 600px) {
+      .mic-section, .results { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <header>
+      <div class="logo-badge">
+        <span class="dot"></span>
+        AI Powered
+      </div>
+      <h1>VoiceTranslator</h1>
+      <p class="subtitle">// Türkçe konuş → İngilizceye çevir → Sesli dinle</p>
+    </header>
+
+    <div class="card" id="mainCard">
+
+      <div class="mic-section" id="micSection">
+        <div class="mic-ring-outer" id="micRingOuter">
+          <div class="mic-ring-2"></div>
+          <div class="mic-ring"></div>
+          <button class="mic-btn" id="micBtn" title="Konuşmak için tıkla">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm-1 16.93V22h2v-2.07A8.001 8.001 0 0 0 20 12h-2a6 6 0 0 1-12 0H4a8.001 8.001 0 0 0 7 7.93z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="waveform" id="waveform">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+
+        <div class="status-label" id="statusLabel">Konuşmak için mikrofona tıkla</div>
+      </div>
+
+      <div class="results">
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="result-block" id="trBlock">
+          <div class="result-label">
+            <span class="tag tag-tr">TR</span>
+            Türkçe — Transkript
+          </div>
+          <div class="result-box tr-box" id="trBox">
+            <span class="placeholder">Konuşman burada görünecek...</span>
+          </div>
+        </div>
+
+        <div class="divider">
+          <div class="divider-line"></div>
+          <span class="divider-icon">⇓</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="result-block" id="enBlock">
+          <div class="result-label">
+            <span class="tag tag-en">EN</span>
+            English — Translation
+          </div>
+          <div class="result-box en-box" id="enBox">
+            <span class="placeholder">Translation will appear here...</span>
+          </div>
+          <button class="speak-btn" id="speakBtn">
+            <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            Dinle (TTS)
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>
+      Built with <a href="https://console.groq.com" target="_blank">Groq API</a> · Llama 3.3 70B · Web Speech API · FastAPI
+    </footer>
+
+  </div>
+
+  <script>
+    const API_URL = '/translate';
+
+    const micBtn      = document.getElementById('micBtn');
+    const micSection  = document.getElementById('micSection');
+    const statusLabel = document.getElementById('statusLabel');
+    const trBox       = document.getElementById('trBox');
+    const enBox       = document.getElementById('enBox');
+    const trBlock     = document.getElementById('trBlock');
+    const enBlock     = document.getElementById('enBlock');
+    const speakBtn    = document.getElementById('speakBtn');
+    const errorMsg    = document.getElementById('errorMsg');
+
+    let recognition  = null;
+    let isRecording  = false;
+    let currentUtter = null;
+
+    function setupRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showError('Tarayıcınız Web Speech API desteklemiyor. Chrome kullanmanızı öneririz.');
+        micBtn.disabled = true;
+        return null;
+      }
+
+      const r = new SpeechRecognition();
+      r.lang = 'tr-TR';
+      r.continuous = false;
+      r.interimResults = true;
+
+      r.onstart = () => {
+        isRecording = true;
+        micSection.classList.add('recording');
+        statusLabel.textContent = 'Dinleniyor... konuş!';
+        clearError();
+      };
+
+      r.onresult = (e) => {
+        let interim = '', final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+
+        const display = final || interim;
+        if (display) {
+          trBox.textContent = display;
+          trBlock.classList.add('visible');
+        }
+
+        if (final) {
+          stopRecording();
+          translateText(final.trim());
+        }
+      };
+
+      r.onerror = (e) => {
+        stopRecording();
+        const msgs = {
+          'no-speech'    : 'Ses algılanamadı. Lütfen tekrar dene.',
+          'not-allowed'  : 'Mikrofon erişimi reddedildi. Tarayıcı ayarlarını kontrol et.',
+          'network'      : 'Ağ hatası oluştu.',
+          'audio-capture': 'Mikrofon bulunamadı.',
+        };
+        showError(msgs[e.error] || `Hata: ${e.error}`);
+      };
+
+      r.onend = () => { if (isRecording) stopRecording(); };
+
+      return r;
+    }
+
+    micBtn.addEventListener('click', () => {
+      if (isRecording) {
+        recognition?.stop();
+        stopRecording();
+      } else {
+        recognition = setupRecognition();
+        if (recognition) recognition.start();
+      }
+    });
+
+    function stopRecording() {
+      isRecording = false;
+      micSection.classList.remove('recording');
+      statusLabel.textContent = 'Konuşmak için mikrofona tıkla';
+    }
+
+    async function translateText(text) {
+      enBox.innerHTML = '<div class="shimmer" style="width:80%"></div><div class="shimmer" style="width:55%;margin-top:8px"></div>';
+      enBlock.classList.add('visible');
+      speakBtn.classList.remove('active');
+      statusLabel.textContent = 'Çeviriliyor...';
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, source_lang: 'Turkish', target_lang: 'English' })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          const msg = res.status === 429 ? (err.detail || "API kotası doldu. Yeni key al → console.groq.com") : (err.detail || "Çeviri başarısız");
+          throw new Error(msg);
+        }
+
+        const data = await res.json();
+        enBox.textContent = data.translated;
+        speakBtn.classList.add('active');
+        statusLabel.textContent = 'Çeviri tamamlandı ✓';
+        speak(data.translated);
+
+      } catch (err) {
+        enBox.innerHTML = '<span class="placeholder">Çeviri başarısız.</span>';
+        showError(`Çeviri hatası: ${err.message}`);
+        statusLabel.textContent = 'Hata oluştu.';
+      }
+    }
+
+    speakBtn.addEventListener('click', () => {
+      const text = enBox.textContent;
+      if (text) speak(text);
+    });
+
+    function speak(text) {
+      if (!window.speechSynthesis) return;
+      if (currentUtter) window.speechSynthesis.cancel();
+
+      currentUtter = new SpeechSynthesisUtterance(text);
+      currentUtter.lang = 'en-US';
+      currentUtter.rate = 0.95;
+      currentUtter.pitch = 1;
+
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find(v => v.lang.startsWith('en') && v.localService);
+      if (enVoice) currentUtter.voice = enVoice;
+
+      currentUtter.onstart = () => {
+        speakBtn.style.background = 'rgba(109,250,212,0.25)';
+        speakBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          Dinleniyor...`;
+      };
+
+      currentUtter.onend = () => {
+        speakBtn.style.background = '';
+        speakBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          Dinle (TTS)`;
+      };
+
+      window.speechSynthesis.speak(currentUtter);
+    }
+
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('show');
+    }
+
+    function clearError() {
+      errorMsg.classList.remove('show');
+    }
+  </script>
+</body>
+</html>
